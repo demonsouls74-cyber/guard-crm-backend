@@ -4,5 +4,5 @@ sqlalchemy
 psycopg[binary]
 pydantic[email]
 PyJWT
-passlib
 bcrypt
+email-validator
