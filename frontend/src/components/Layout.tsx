@@ -11,8 +11,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const menuItems = [
     { path: '/', label: '🚨 Дашборд (Інциденти)' },
-    { path: '/objects', label: '🛡️ Об’єкти охорони' },
-    { path: '/audit', label: '📋 Журнал аудиту (Admin only)' },
+    { path: '/objects', label: 'Об’єкти охорони' },
+    { path: '/audit', label: 'Журнал аудиту (Admin only)' },
     { path: '/clients', label: 'Клієнти' },
     { path: '/accounting', label: 'Бухгалтерія' },
     { path: '/personnel', label: 'Персонал' },

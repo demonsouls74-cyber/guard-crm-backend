@@ -491,15 +491,29 @@ async def create_incident(
     return new_incident  # Повертаємо створений інцидент у відповіді
 
 
-# 2. Отримання списку всіх інцидентів (тільки для адмінів та диспетчерів)
+
+# 2. Отримання списку всіх інцидентів (розумна фільтрація за роллю)
 @app.get("/incidents/", response_model=list[schemas.IncidentResponse])
 def get_incidents(
     db: Session = Depends(get_db),
-    token_data: dict = Depends(allow_admin_or_dispatcher)  # Тільки адмін або диспетчер
+    # ЗМІНА 1: Дозволяємо доступ і адмінам, і диспетчерам, і екіпажам
+    token_data: dict = Depends(allow_incident_participants)  
 ):
-    incidents = db.query(models.Incident).all()
-    result = []
+    # Дізнаємося, хто саме робить запит
+    user_role = token_data.get("role")
+    user_email = token_data.get("sub")
 
+    # ЗМІНА 2: Фільтруємо базу залежно від ролі
+    if user_role == "guard":
+        # Знаходимо ID поточного охоронця
+        current_guard = db.query(models.User).filter(models.User.email == user_email).first()
+        # Охоронець отримує ТІЛЬКИ ті інциденти, де він призначений екіпажем
+        incidents = db.query(models.Incident).filter(models.Incident.guard_id == current_guard.id).all()
+    else:
+        # Адмін та диспетчер бачать абсолютно всі інциденти
+        incidents = db.query(models.Incident).all()
+
+    result = []
     for inc in incidents:
         # Безпечно витягуємо дані через зв'язки SQLAlchemy
         obj_name = inc.security_object.name if inc.security_object else f"Об'єкт #{inc.object_id}"

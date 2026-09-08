@@ -5,23 +5,35 @@ import api from '../api';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     try {
-      // Відправляємо запит на наш бекенд
       const response = await api.post('/login/', { email, password });
+      const token = response.data.access_token;
       
-      // Зберігаємо токен у пам'ять браузера
-      localStorage.setItem('token', response.data.access_token);
+      // Зберігаємо токен
+      localStorage.setItem('token', token);
+
+      // РОЗШИФРОВУЄМО ТОКЕН (щоб дістати роль)
+      // Токен складається з 3 частин, розділених крапкою. Друга частина — це дані (payload)
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(atob(payloadBase64));
       
-      // Перенаправляємо на головну сторінку (дашборд)
-      navigate('/');
-    } catch (err) {
-      setError('Неправильний email або пароль');
+      // Зберігаємо роль, щоб використовувати її для перевірок доступу
+      localStorage.setItem('role', payload.role);
+
+      // РОЗУМНИЙ РЕДИРЕКТ
+      if (payload.role === 'guard') {
+        navigate('/guard'); // Охоронця кидаємо на його планшетний інтерфейс
+      } else {
+        navigate('/'); // Адміна чи диспетчера кидаємо на головний дашборд
+      }
+      
+    } catch (error) {
+      alert("Неправильний логін або пароль");
     }
   };
 
