@@ -292,6 +292,8 @@ def create_security_object(
         latitude=obj.latitude,    # Зберігаємо широту
         longitude=obj.longitude,  # Зберігаємо довготу
         instructions=obj.instructions
+        status=obj.status,             
+        monthly_fee=obj.monthly_fee  
     )
 
     db.add(new_object)  # Додаємо новий об'єкт до сесії бази даних
@@ -551,7 +553,7 @@ def get_incidents(
         })
     return result
 
-# Оновлення статусу тривоги (ТІЛЬКИ ДЛЯ ДИСПЕТЧЕРІВ ТА АДМІНІВ)
+# Оновлення статусу тривоги (ТІЛЬКИ ДЛЯ АДМІНІВ, ДИСПЕТЧЕРІВ ТА ЕКІПАЖУ в залежності від статусу)
 @app.put("/incidents/{incident_id}/", response_model=schemas.IncidentResponse)
 async def update_incident_status(
     incident_id: int,
