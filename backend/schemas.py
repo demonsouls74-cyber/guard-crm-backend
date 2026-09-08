@@ -138,6 +138,8 @@ class IncidentResponse(BaseModel):
     object_id: int
     object_name: Optional[str] = None        # Назва об'єкта (наприклад, "Магазин АТБ")
     object_address: Optional[str] = None     # Адреса об'єкта (наприклад, "вул. Шевченка, 12")
+    object_latitude: Optional[float] = None  
+    object_longitude: Optional[float] = None 
     object_instructions: Optional[str] = None  # Інструкції для екіпажу на випадок тривоги
     client_name: Optional[str] = None          # Ім'я власника об'єкта (клієнта)
     client_phone: Optional[str] = None                 # Телефон власника об'єкта (клієнта)

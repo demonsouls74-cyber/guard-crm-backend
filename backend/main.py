@@ -543,6 +543,8 @@ def get_incidents(
             "status": inc.status,
             "created_at": inc.created_at,
             "object_address": obj_address,
+            "object_latitude": inc.security_object.latitude if inc.security_object else None,   # ДОДАНО
+            "object_longitude": inc.security_object.longitude if inc.security_object else None, # ДОДАНО
             "object_instructions": obj_instructions,
             "client_name": client_name,
             "client_phone": client_phone
