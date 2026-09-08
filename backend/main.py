@@ -19,7 +19,7 @@ app = FastAPI()
 # Додаємо CORS middleware, щоб React (порт 5173) міг робити запити до FastAPI (порт 8000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Дозволяємо запити з цього походження
+    allow_origins=["*"],  # Дозволяємо запити з будь-якого походження (на локалці це буде "http://localhost:5173")
     allow_credentials=True,
     allow_methods=["*"],  # Дозволяємо всі методи (GET, POST, PUT, DELETE)
     allow_headers=["*"],  # Дозволяємо всі заголовки
