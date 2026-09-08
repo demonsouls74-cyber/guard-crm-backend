@@ -39,7 +39,11 @@ function App() {
           <Route path="/accounting" element={<PrivateRoute><Accounting /></PrivateRoute>} />
           <Route path="/personnel" element={<PrivateRoute><Personnel /></PrivateRoute>} />
         </Route>
-
+        {/* МАРШРУТИ ТІЛЬКИ ДЛЯ КЛІЄНТІВ */}
+        <Route element={<ProtectedRoute allowedRoles={['client']} />}>
+          <Route path="/client" element={<ClientDashboard />} />
+        </Route>
+        
         {/* Якщо адреса не знайдена, кидаємо на корінь, а там ProtectedRoute сам розбереться */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

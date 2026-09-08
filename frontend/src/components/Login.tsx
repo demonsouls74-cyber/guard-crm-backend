@@ -25,11 +25,14 @@ export default function Login() {
       // Зберігаємо роль, щоб використовувати її для перевірок доступу
       localStorage.setItem('role', payload.role);
 
+    
       // РОЗУМНИЙ РЕДИРЕКТ
       if (payload.role === 'guard') {
-        navigate('/guard'); // Охоронця кидаємо на його планшетний інтерфейс
+        navigate('/guard'); 
+      } else if (payload.role === 'client') {
+        navigate('/client'); // Клієнта кидаємо у власний кабінет
       } else {
-        navigate('/'); // Адміна чи диспетчера кидаємо на головний дашборд
+        navigate('/'); 
       }
       
     } catch (error) {

@@ -834,3 +834,44 @@ def get_all_payments_history(
         })
         
     return result
+
+
+# ==========================================
+# ОСОБИСТИЙ КАБІНЕТ КЛІЄНТА (CLIENT DASHBOARD)
+# ==========================================
+allow_clients = RoleChecker(["client"])
+
+@app.get("/my/profile/", response_model=schemas.ClientProfileResponse)
+def get_my_profile(db: Session = Depends(get_db), token_data: dict = Depends(allow_clients)):
+    user = db.query(models.User).filter(models.User.email == token_data.get("sub")).first()
+    if not user.profile:
+        raise HTTPException(status_code=404, detail="Профіль ще не заповнено адміністратором")
+    return user.profile
+
+@app.get("/my/objects/", response_model=list[schemas.SecurityObjectResponse])
+def get_my_objects(db: Session = Depends(get_db), token_data: dict = Depends(allow_clients)):
+    user = db.query(models.User).filter(models.User.email == token_data.get("sub")).first()
+    objects = db.query(models.SecurityObject).filter(models.SecurityObject.client_id == user.id).all()
+    
+    result = []
+    for obj in objects:
+        result.append({
+            "id": obj.id,
+            "name": obj.name,
+            "address": obj.address,
+            "latitude": obj.latitude,
+            "longitude": obj.longitude,
+            "client_id": obj.client_id,
+            "client_email": user.email,
+            "instructions": obj.instructions,
+            "status": obj.status,
+            "monthly_fee": obj.monthly_fee,
+            "paid_until": obj.paid_until
+        })
+    return result
+
+@app.get("/my/payments/", response_model=list[schemas.PaymentResponse])
+def get_my_payments(db: Session = Depends(get_db), token_data: dict = Depends(allow_clients)):
+    user = db.query(models.User).filter(models.User.email == token_data.get("sub")).first()
+    payments = db.query(models.Payment).filter(models.Payment.client_id == user.id).order_by(models.Payment.created_at.desc()).all()
+    return payments
