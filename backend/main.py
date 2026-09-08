@@ -291,7 +291,7 @@ def create_security_object(
         client_id=obj.client_id,
         latitude=obj.latitude,    # Зберігаємо широту
         longitude=obj.longitude,  # Зберігаємо довготу
-        instructions=obj.instructions
+        instructions=obj.instructions,
         status=obj.status,             
         monthly_fee=obj.monthly_fee  
     )
