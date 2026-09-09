@@ -12,7 +12,7 @@ import asyncio
 import uuid
 
 
-models.Base.metadata.drop_all(bind=engine)
+
 # Створюємо всі таблиці наново за нашими актуальними моделями
 models.Base.metadata.create_all(bind=engine)
 # -----------------------------------------
@@ -133,7 +133,7 @@ def read_root():
 
 # Наш новий закритий ендпоінт для створення користувачів
 @app.post("/users/")
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)): 
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), token_data: dict = Depends(allow_admin)): 
     # 1. Перевіряємо, чи немає вже когось із таким email
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
