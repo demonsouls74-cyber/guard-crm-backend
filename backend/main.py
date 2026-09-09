@@ -310,7 +310,7 @@ def get_security_objects(
         token_data: dict = Depends(allow_incident_participants) #контролює, чи є користувач адміном, диспетчером або охоронцем
         ):
     # Звертаємося до бази і просимо віддати всі записи з таблиці SecurityObject
-    objects = db.query(models.SecurityObject).all()
+    objects = db.query(models.SecurityObject).order_by(models.SecurityObject.id.desc()).all()
     result = []
     for obj in objects:
         client_email = obj.client.email if obj.client else f"ID #{obj.client_id}"
