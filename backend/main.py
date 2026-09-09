@@ -12,9 +12,9 @@ import asyncio
 import uuid
 
 
-
+models.Base.metadata.drop_all(bind=engine)
 # Створюємо всі таблиці наново за нашими актуальними моделями
-# models.Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 # -----------------------------------------
 
 app = FastAPI()
@@ -133,7 +133,7 @@ def read_root():
 
 # Наш новий закритий ендпоінт для створення користувачів
 @app.post("/users/")
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), token_data: dict = Depends(allow_admin)): 
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)): 
     # 1. Перевіряємо, чи немає вже когось із таким email
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
@@ -957,14 +957,3 @@ def generate_telegram_link(
 
 
 
-
-# ==========================================
-# НЕБЕЗПЕЧНА ЗОНА (Тимчасовий ендпоінт для скидання бази)
-# ==========================================
-# @app.get("/danger-reset-db/")
-# def reset_database():
-#     # Видаляє всі існуючі таблиці з бази даних
-#     models.Base.metadata.drop_all(bind=engine)
-#     # Створює всі таблиці наново з оновленою структурою (новими колонками)
-#     models.Base.metadata.create_all(bind=engine)
-#     return {"message": "Базу даних успішно скинуто! Таблиці створені наново."}
