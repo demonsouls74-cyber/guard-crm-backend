@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-import RoutingMachine from './RoutingMachine'; // Імпортуємо наш новий компонент
+import RoutingMachine from './RoutingMachine';
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -23,13 +23,24 @@ const alarmIcon = new L.DivIcon({
   iconAnchor: [12, 12],
 });
 
-const guardIcon = new L.DivIcon({
+// Активна іконка для онлайн-екіпажу
+const guardOnlineIcon = new L.DivIcon({
   className: 'bg-transparent',
   html: `<div class="flex items-center justify-center h-7 w-7 rounded-full bg-green-600 border-2 border-white shadow-md text-white font-bold text-xs">
            👮‍♂️
          </div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
+});
+
+// Бліда іконка для оффлайн-екіпажу (сірий колір, менша непрозорість)
+const guardOfflineIcon = new L.DivIcon({
+  className: 'bg-transparent',
+  html: `<div class="flex items-center justify-center h-6 w-6 rounded-full bg-slate-400 border-2 border-white shadow-sm text-white font-bold text-[10px] opacity-50 grayscale">
+           👮‍♂️
+         </div>`,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
 });
 
 interface MapObject {
@@ -52,6 +63,8 @@ interface Guard {
   email: string;
   latitude: number | null;
   longitude: number | null;
+  is_online?: boolean; // <-- Додали підтримку статусу
+  full_name?: string | null;
 }
 
 interface MapWidgetProps {
@@ -62,9 +75,9 @@ interface MapWidgetProps {
 
 export default function MapWidget({ objects, activeIncidents = [], guards = [] }: MapWidgetProps) {
   const validObjects = objects.filter(obj => obj.latitude && obj.longitude);
+  // Тепер беремо і тих, у кого є GPS координати (навіть якщо вони нещодавно вийшли з мережі)
   const validGuards = guards.filter(guard => guard.latitude && guard.longitude);
 
-  // Знаходимо активний маршрут: якщо інцидент у статусі DISPATCHED і на нього призначено охоронця, у якого є GPS
   let activeRoute: { start: [number, number]; end: [number, number] } | null = null;
 
   const dispatchedIncident = activeIncidents.find(inc => inc.status === 'DISPATCHED' && inc.guard_id);
@@ -92,7 +105,7 @@ export default function MapWidget({ objects, activeIncidents = [], guards = [] }
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {/* Малюємо лінію маршруту по дорогах, якщо екіпаж виїхав */}
+        {/* Лінія маршруту */}
         {activeRoute && <RoutingMachine start={activeRoute.start} end={activeRoute.end} />}
 
         {/* Об'єкти охорони */}
@@ -120,24 +133,32 @@ export default function MapWidget({ objects, activeIncidents = [], guards = [] }
           );
         })}
 
-        {/* Екіпажі */}
-        {validGuards.map((guard) => (
-          <Marker 
-            key={`guard-${guard.id}`} 
-            position={[guard.latitude as number, guard.longitude as number]}
-            icon={guardIcon}
-          >
-            <Popup>
-              <div className="text-center">
-                <h3 className="font-bold text-green-700">Екіпаж #{guard.id}</h3>
-                <p className="text-xs text-gray-500">{guard.email}</p>
-                <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block">
-                  На чергуванні (GPS)
-                </span>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {/* Екіпажі (і онлайн, і оффлайн, але з різними іконками) */}
+        {validGuards.map((guard) => {
+          const isOnline = guard.is_online ?? false;
+
+          return (
+            <Marker 
+              key={`guard-${guard.id}`} 
+              position={[guard.latitude as number, guard.longitude as number]}
+              icon={isOnline ? guardOnlineIcon : guardOfflineIcon}
+            >
+              <Popup>
+                <div className="text-center">
+                  <h3 className={`font-bold ${isOnline ? 'text-green-700' : 'text-slate-500'}`}>
+                    {guard.full_name || `Екіпаж #${guard.id}`}
+                  </h3>
+                  <p className="text-xs text-gray-500">{guard.email}</p>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block ${
+                    isOnline ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {isOnline ? '🟢 На зв\'язку (Онлайн)' : '⚪ Поза мережею (Оффлайн)'}
+                  </span>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
       </MapContainer>
     </div>

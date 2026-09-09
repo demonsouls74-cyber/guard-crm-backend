@@ -15,10 +15,10 @@ interface Incident {
   id: number;
   object_id: number;
   object_name: string;
-  object_address?: string;       // адреса
-  object_instructions?: string;  // інструкції
-  client_name?: string;          // ПІБ клієнта
-  client_phone?: string;         // телефон
+  object_address?: string;
+  object_instructions?: string;
+  client_name?: string;
+  client_phone?: string;
   status: string;
   created_at: string;
 }
@@ -29,6 +29,8 @@ interface User {
   role: string;
   latitude: number | null;
   longitude: number | null;
+  is_online?: boolean;    // <-- Додали статус онлайн
+  full_name?: string | null; // <-- Додали ПІБ охоронця за наявності
 }
 
 export default function Dashboard() {
@@ -54,8 +56,12 @@ export default function Dashboard() {
       ]);
       setObjects(objRes.data);
       setIncidents(incRes.data);
-      // Фільтруємо охоронців
-      const guardList = userRes.data.filter((user: User) => user.role === 'guard');
+
+      // Фільтруємо охоронців та сортуємо: онлайн завжди зверху
+      const guardList = userRes.data
+        .filter((user: User) => user.role === 'guard')
+        .sort((a: User, b: User) => Number(b.is_online ?? false) - Number(a.is_online ?? false));
+
       setGuards(guardList);
     } catch (error) {
       console.error('Помилка завантаження даних дашборду:', error);
@@ -63,53 +69,81 @@ export default function Dashboard() {
   };
 
   const activeIncidents = incidents.filter(inc => 
-  ['PENDING', 'DISPATCHED', 'ACKNOWLEDGED'].includes(inc.status));
+    ['PENDING', 'DISPATCHED', 'ACKNOWLEDGED'].includes(inc.status)
+  );
 
   const openAssignModal = (incident: Incident) => {
     setSelectedIncident(incident);
     setIsAssignModalOpen(true);
   };
 
-  // НОВА ФУНКЦІЯ: Зміна статусу інциденту прямо з Дашборду
   const handleUpdateStatus = async (incidentId: number, newStatus: string) => {
     try {
       await api.put(`/incidents/${incidentId}/`, { status: newStatus });
-      fetchData(); // Одразу оновлюємо список
+      fetchData();
     } catch (error) {
       console.error('Помилка оновлення статусу:', error);
       alert('Не вдалося оновити статус інциденту');
     }
   };
 
+  // Рахуємо кількість екіпажів, які зараз реально на зв'язку
+  const onlineGuardsCount = guards.filter(g => g.is_online).length;
+
   return (
     <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-gray-100">
       
-      {/* 1. ФОН: Велика тактична мапа з об'єктами, тривогами та екіпажами */}
+      {/* 1. ФОН: Велика тактична мапа */}
       <div className="absolute inset-0 z-0">
         <MapWidget objects={objects} activeIncidents={activeIncidents} guards={guards} />
       </div>
 
-      {/* 2. ЛІВА ПАНЕЛЬ: Динамічний список екіпажів */}
+      {/* 2. ЛІВА ПАНЕЛЬ: Динамічний список екіпажів із прив'язкою до онлайн-статусу */}
       <div className="absolute top-4 left-4 bottom-4 w-80 bg-white/95 backdrop-blur shadow-lg rounded-lg border border-gray-200 flex flex-col z-10 overflow-hidden">
         <div className="p-4 bg-slate-800 text-white font-bold flex justify-between items-center">
           <span>Екіпажі (ПШР)</span>
-          <span className="bg-green-500 text-xs px-2 py-1 rounded-full">{guards.length} на зв'язку</span>
+          <span className="bg-green-500 text-xs px-2 py-1 rounded-full">
+            {onlineGuardsCount} / {guards.length} на зв'язку
+          </span>
         </div>
+        
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {guards.length === 0 ? (
             <p className="text-xs text-gray-500 text-center italic">Немає зареєстрованих екіпажів (guard).</p>
           ) : (
-            guards.map(guard => (
-              <div key={guard.id} className="p-3 border rounded-lg bg-green-50 border-green-200">
-                <div className="font-bold text-green-800">Екіпаж #{guard.id}</div>
-                <div className="text-xs text-gray-600 truncate">{guard.email}</div>
-                <div className="text-[11px] text-green-600 mt-1 font-mono">
-                  {guard.latitude && guard.longitude 
-                    ? `GPS: ${guard.latitude.toFixed(4)}, ${guard.longitude.toFixed(4)}` 
-                    : 'GPS: Немає даних'}
+            guards.map(guard => {
+              const isOnline = guard.is_online ?? false;
+
+              return (
+                <div 
+                  key={guard.id} 
+                  className={`p-3 border rounded-lg transition-all ${
+                    isOnline 
+                      ? 'bg-green-50 border-green-200 shadow-sm' 
+                      : 'bg-slate-50 border-slate-200 opacity-60 grayscale'
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-800">
+                      {guard.full_name || `Екіпаж #${guard.id}`}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      isOnline ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {isOnline ? '🟢 Онлайн' : '⚪ Оффлайн'}
+                    </span>
+                  </div>
+                  
+                  <div className="text-xs text-gray-600 truncate mt-1">{guard.email}</div>
+                  
+                  <div className={`text-[11px] mt-1 font-mono ${isOnline ? 'text-green-600' : 'text-slate-400'}`}>
+                    {guard.latitude && guard.longitude 
+                      ? `GPS: ${guard.latitude.toFixed(4)}, ${guard.longitude.toFixed(4)}` 
+                      : 'GPS: Немає даних'}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -153,7 +187,6 @@ export default function Dashboard() {
 
                   {/* БЛОК ОПЕРАТИВНОЇ ІНФОРМАЦІЇ */}
                   <div className="bg-white/70 p-3 rounded-md border border-red-100 text-sm mb-4 space-y-2 shadow-inner">
-                    {/* Контакти клієнта */}
                     {inc.client_name ? (
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-500 font-semibold uppercase">Власник:</span>
@@ -171,7 +204,6 @@ export default function Dashboard() {
                       <p className="text-gray-400 italic text-xs">Дані клієнта відсутні</p>
                     )}
                     
-                    {/* Інструкції для екіпажу */}
                     {inc.object_instructions && (
                       <div className="pt-2 border-t border-red-100/50">
                         <span className="text-xs text-orange-600 font-semibold uppercase block">⚠️ Інструкції:</span>
@@ -180,7 +212,7 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* РОЗУМНІ КНОПКИ ЗАЛЕЖНО ВІД СТАТУСУ */}
+                  {/* КНОПКИ */}
                   <div className="flex space-x-2">
                     {inc.status === 'PENDING' ? (
                       <button 

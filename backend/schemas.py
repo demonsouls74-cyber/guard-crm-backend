@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     role: str
     latitude: Optional[float] = None   
     longitude: Optional[float] = None  
+    is_online: Optional[bool] = False
 
     class Config:
         from_attributes = True  # Дозволяє Pydantic працювати з ORM-моделями SQLAlchemy

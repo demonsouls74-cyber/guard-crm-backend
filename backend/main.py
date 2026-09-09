@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine
 from backend import models, schemas, security
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from fastapi import Body
 import asyncio
 
@@ -24,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],  # Дозволяємо всі методи (GET, POST, PUT, DELETE)
     allow_headers=["*"],  # Дозволяємо всі заголовки
 )
+
+# Словник для відстеження активності екіпажів (ID охоронця -> час останнього пінгу)
+active_guards_activity = {}
 
 # ==========================================
 # МЕНЕДЖЕР WEBSOCKET З'ЄДНАНЬ
@@ -160,13 +163,20 @@ def get_users(db: Session = Depends(get_db), token_data: dict = Depends(allow_ad
 
     result = []
     for user in users:
+        is_online = False
+        if user.role == "guard":
+            last_active = active_guards_activity.get(user.id)
+            # Якщо останній пінг був менше ніж 30 секунд тому — екіпаж онлайн
+            if last_active and (now - last_active).total_seconds() < 30:
+                is_online = True
         result.append({
             "id": user.id,
             "email": user.email,
             "full_name": user.profile.full_name if user.profile else None,  # Додаємо повне ім'я з профілю
             "role": user.role,
             "latitude": user.latitude,
-            "longitude": user.longitude
+            "longitude": user.longitude,
+            "is_online": is_online
         })
 
     return result
@@ -812,6 +822,9 @@ def update_guard_location(
     user.latitude = lat
     user.longitude = lon
     db.commit()  # Фіксуємо зміни в базі даних
+
+    # === ФІКСУЄМО ЧАС АКТИВНОСТІ ===
+    active_guards_activity[user.id] = datetime.now()
 
     return {"message": "Координати успішно оновлено", "latitude": lat, "longitude": lon}
 
