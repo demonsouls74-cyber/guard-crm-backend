@@ -162,6 +162,7 @@ def get_users(db: Session = Depends(get_db), token_data: dict = Depends(allow_ad
     users = db.query(models.User).all()
 
     result = []
+    now = datetime.now()
     for user in users:
         is_online = False
         if user.role == "guard":
