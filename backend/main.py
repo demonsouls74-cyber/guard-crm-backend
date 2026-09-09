@@ -330,6 +330,7 @@ def get_security_objects(
     return result
 
 # Редагування об'єкта охорони (тільки для адмінів)
+# Редагування об'єкта охорони (тільки для адмінів)
 @app.put("/objects/{object_id}/", response_model=schemas.SecurityObjectResponse)
 def update_security_object(
     object_id: int,
@@ -342,7 +343,28 @@ def update_security_object(
     if not obj:
         raise HTTPException(status_code=404, detail="Об'єкт охорони не знайдено")
 
-    # 2. Оновлюємо поля об'єкта, якщо вони передані в запиті (якщо порожні — залишаємо старі значення)
+    # === ЛОГІКА ПЕРЕРАХУНКУ ДНІВ ПРИ ЗМІНІ ТАРИФУ (PRORATION) ===
+    # Якщо тариф передано, він відрізняється від старого, і новий тариф більше нуля
+    if obj_update.monthly_fee is not None and obj_update.monthly_fee != obj.monthly_fee and obj_update.monthly_fee > 0:
+        old_fee = obj.monthly_fee
+        new_fee = obj_update.monthly_fee
+        today = date.today()
+
+        # Робимо перерахунок тільки якщо об'єкт має оплачені дні в майбутньому і старий тариф теж був > 0
+        if obj.paid_until and obj.paid_until > today and old_fee > 0:
+            remaining_days = (obj.paid_until - today).days
+            
+            # Скільки "грошей" залишилося на балансі за старим тарифом
+            leftover_money = (remaining_days / 30.0) * old_fee
+            
+            # На скільки днів вистачить цих грошей за новим тарифом
+            new_remaining_days = int((leftover_money / new_fee) * 30)
+            
+            # Встановлюємо нову дату (сьогодні + нові дні)
+            obj.paid_until = today + timedelta(days=new_remaining_days)
+    # ==========================================================
+
+    # 2. Оновлюємо інші поля
     if obj_update.name is not None:
         obj.name = obj_update.name
     if obj_update.address is not None:
@@ -357,13 +379,15 @@ def update_security_object(
         obj.status = obj_update.status
     if obj_update.monthly_fee is not None:
         obj.monthly_fee = obj_update.monthly_fee
+        
+    # Якщо адмін вручну передав нову дату в формі, вона пріоритетна і перепише наш автоматичний перерахунок
     if obj_update.paid_until is not None:
         obj.paid_until = obj_update.paid_until
 
     db.commit()  # Фіксуємо зміни в базі даних
     db.refresh(obj)  # Оновлюємо об'єкт obj
 
-    return obj  # Повертаємо оновлений об'єкт у відповіді   
+    return obj  # Повертаємо оновлений об'єкт у відповіді  # Повертаємо оновлений об'єкт у відповіді   
 
 
 # Ендпоінт для реєстрації оплати за об'єкт охорони (тільки для адмінів та бухгалтерів)

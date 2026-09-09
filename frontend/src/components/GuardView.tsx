@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+// 1. Додаємо імпорт useMap
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useNavigate } from 'react-router-dom';
 
 interface Incident {
   id: number;
@@ -22,7 +24,6 @@ interface SecurityObject {
   longitude: number | null;
 }
 
-// Кастомна іконка для машини екіпажу (яскраво-синій круг із машиною або чіткий бідж)
 const carIcon = L.divIcon({
   className: 'custom-car-marker',
   html: `<div style="background-color: #4dff29; width: 24px; height: 24px; border: 3px solid white; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold;">🚗</div>`,
@@ -30,7 +31,6 @@ const carIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-// Кастомна іконка для звичайних об'єктів охорони
 const objectIcon = L.divIcon({
   className: 'custom-object-marker',
   html: `<div style="background-color: #6aa8ff; width: 18px; height: 18px; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>`,
@@ -38,15 +38,33 @@ const objectIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
+
+// 2. СТВОРЮЄМО КОМПОНЕНТ-НАВІГАТОР (АВТОФОКУС)
+function MapUpdater({ location }: { location: { lat: number; lon: number } | null }) {
+  const map = useMap(); // Отримуємо доступ до об'єкта карти Leaflet
+  
+  useEffect(() => {
+    if (location) {
+      // Плавно переміщуємо центр карти на нові координати екіпажу
+      map.setView([location.lat, location.lon], map.getZoom(), {
+        animate: true,
+        duration: 1 // Тривалість анімації польоту
+      });
+    }
+  }, [location, map]);
+  
+  return null; // Цей компонент нічого не малює, він лише керує камерою
+}
+
+
 export default function GuardView() {
   const [activeIncident, setActiveIncident] = useState<Incident | null>(null);
   const [allObjects, setAllObjects] = useState<SecurityObject[]>([]);
   const [myLocation, setMyLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
-  
+  const navigate = useNavigate();
   const wsRef = useRef<WebSocket | null>(null);
 
-  // 1. Завантаження активної тривоги
   const fetchMyIncident = async () => {
     try {
       const response = await api.get('/incidents/');
@@ -59,7 +77,6 @@ export default function GuardView() {
     }
   };
 
-  // 2. Завантаження всіх об'єктів для карти патрулювання
   const fetchAllObjects = async () => {
     try {
       const response = await api.get('/objects/');
@@ -69,7 +86,6 @@ export default function GuardView() {
     }
   };
 
-  // ФУНКЦІЯ ПРОКЛАДАННЯ МАРШРУТУ (OSRM API)
   const getRoute = async (startLat: number, startLon: number, endLat: number, endLon: number) => {
     try {
       const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`);
@@ -88,14 +104,12 @@ export default function GuardView() {
     fetchMyIncident();
     fetchAllObjects();
 
-    // РОЗУМНИЙ WEBSOCKET З АВТОПЕРЕПІДКЛЮЧЕННЯМ
     const connectWebSocket = () => {
       const wsUrl = 'wss://guard-crm-backend-1.onrender.com/ws/incidents';
       const ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        // Будь-який сигнал про нову тривогу або зміну статусу змушує оновити дані
         if (data.type === 'NEW_INCIDENT' || data.type === 'UPDATE_INCIDENT') {
           fetchMyIncident();
         }
@@ -111,13 +125,10 @@ export default function GuardView() {
 
     connectWebSocket();
 
-    // РЕХУЛЯРНЕ ФОНОВЕ ОПИТУВАННЯ (FALLBACK) КОЖНІ 5 СЕКУНД
-    // Гарантує, що навіть якщо WebSocket "мовчить", тривога все одно з'явиться автоматично
     const pollingInterval = setInterval(() => {
       fetchMyIncident();
     }, 5000);
 
-    // АВТОМАТИЧНИЙ GPS-ТРЕКЕР
     let watchId: number;
     if ('geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
@@ -142,7 +153,6 @@ export default function GuardView() {
     };
   }, []);
 
-  // МАЛЮЄМО МАРШРУТ ПРИ ПРИЙНЯТТІ ВИКЛИКУ
   useEffect(() => {
     if (
       activeIncident?.status === 'ACKNOWLEDGED' && 
@@ -171,10 +181,17 @@ export default function GuardView() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    navigate('/login');
+  };
+
   return (
-    <div className="relative h-screen w-full bg-slate-900 overflow-hidden font-sans">
+    // 3. ЗМІНА ТУТ: h-screen замінено на h-[100dvh] для ідеального розміру на мобілках
+    <div className="relative h-[100dvh] w-full bg-slate-900 overflow-hidden font-sans">
       
-      {/* КАРТА (ЗАВЖДИ НА ФОНІ) */}
+      {/* КАРТА */}
       <div className="absolute inset-0 z-0">
         <MapContainer 
           center={myLocation ? [myLocation.lat, myLocation.lon] : [47.653, 34.088]} 
@@ -184,7 +201,9 @@ export default function GuardView() {
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           
-          {/* 1. ВСІ ОБ'ЄКТИ ОХОРОНИ НА КАРТІ (РЕЖИМ ПАТРУЛЮВАННЯ) */}
+          {/* 4. ВСТАВЛЯЄМО НАШ НАВІГАТОР ДЛЯ КАМЕРИ */}
+          <MapUpdater location={myLocation} />
+
           {allObjects.map((obj) => {
             if (obj.latitude && obj.longitude) {
               return (
@@ -199,47 +218,48 @@ export default function GuardView() {
             return null;
           })}
 
-          {/* 2. МАРКЕР АВТО ЕКІПАЖУ */}
           {myLocation && (
             <Marker position={[myLocation.lat, myLocation.lon]} icon={carIcon}>
               <Popup>Ваш екіпаж</Popup>
             </Marker>
           )}
 
-          {/* 3. ЛІНІЯ МАРШРУТУ ДО ОБ'ЄКТА */}
           {routeCoords.length > 0 && (
             <Polyline positions={routeCoords} color="#3b82f6" weight={5} opacity={0.8} />
           )}
         </MapContainer>
       </div>
 
-      {/* UI: РЕЖИМ ОЧІКУВАННЯ */}
-      {!activeIncident && (
-        <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-slate-200 flex items-center justify-between">
-          <div>
-            <h3 className="font-bold text-slate-800 text-lg">Патрулювання</h3>
-            <p className="text-xs text-slate-500">Очікування команд...</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-bold text-emerald-700">GPS Активний</span>
-          </div>
+      {/* ВЕРХНЯ ПАНЕЛЬ */}
+      <div className="absolute top-4 left-4 z-30 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-xl shadow-lg border border-slate-200 flex items-center space-x-3">
+        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
+        <div>
+          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Патрулювання</h3>
+          <p className="text-[10px] text-slate-500">GPS активний</p>
         </div>
-      )}
+      </div>
 
-      {/* UI: ТРИВОГА (ПІВ ЕКРАНА ЗНИЗУ) */}
+      <button 
+        onClick={handleLogout} 
+        className="absolute top-4 right-4 z-30 bg-slate-800/90 hover:bg-red-500 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition"
+      >
+        Вийти
+      </button>
+
+      {/* UI: ТРИВОГА (Модальне вікно по центру екрана) */}
       {activeIncident?.status === 'DISPATCHED' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-red-600 rounded-t-3xl shadow-[0_-10px_40px_rgba(220,38,38,0.5)] p-6 animate-slide-up">
-          <div className="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-6"></div>
-          <div className="text-center mb-8">
-            <h1 className="text-5xl font-black uppercase tracking-widest text-white drop-shadow-md mb-2">Тривога!</h1>
-            <h2 className="text-2xl font-bold text-white">{activeIncident.object_name}</h2>
-            <p className="text-lg text-red-100 font-medium mt-1">📍 {activeIncident.object_address}</p>
+        <div className="absolute inset-0 z-50 bg-red-600/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in text-center">
+          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 animate-bounce">
+            <span className="text-4xl">🚨</span>
           </div>
+          
+          <h1 className="text-5xl font-black uppercase tracking-widest text-white drop-shadow-lg mb-2">Тривога!</h1>
+          <h2 className="text-2xl font-bold text-white mb-1">{activeIncident.object_name}</h2>
+          <p className="text-base text-red-100 font-medium mb-8 max-w-xs">📍 {activeIncident.object_address}</p>
           
           <button 
             onClick={handleAcknowledge}
-            className="w-full bg-white text-red-700 font-black text-2xl py-6 rounded-2xl shadow-xl active:scale-95 transition-transform"
+            className="w-full max-w-sm bg-white text-red-700 font-black text-xl py-5 rounded-2xl shadow-[0_10px_25px_rgba(0,0,0,0.5)] active:scale-95 transition-transform"
           >
             ПРИЙНЯТИ ВИКЛИК
           </button>
@@ -248,20 +268,20 @@ export default function GuardView() {
 
       {/* UI: МАРШРУТ (ПАНЕЛЬ ІНФОРМАЦІЇ ЗНИЗУ) */}
       {activeIncident?.status === 'ACKNOWLEDGED' && (
-        <div className="absolute bottom-4 left-4 right-4 z-20 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-          <div className="bg-slate-900 p-4">
+        <div className="absolute bottom-4 left-4 right-4 z-20 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+          <div className="bg-slate-900 p-3">
             <div className="flex justify-between items-center mb-1">
-              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest animate-pulse">
+              <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse">
                 Екіпаж у дорозі
               </span>
             </div>
-            <h2 className="text-xl font-bold text-white leading-tight">{activeIncident.object_name}</h2>
-            <p className="text-sm text-slate-300 mt-1">📍 {activeIncident.object_address}</p>
+            <h2 className="text-base font-bold text-white leading-tight">{activeIncident.object_name}</h2>
+            <p className="text-xs text-slate-300 mt-0.5">📍 {activeIncident.object_address}</p>
           </div>
           
-          <div className="p-4 bg-slate-50">
-            <span className="text-xs text-slate-500 uppercase font-bold block mb-1">Інструкції для екіпажу:</span>
-            <p className="text-sm font-bold text-amber-700 bg-amber-100 p-3 rounded-xl border border-amber-200">
+          <div className="p-3 bg-slate-50">
+            <span className="text-[10px] text-slate-500 uppercase font-bold block mb-0.5">Інструкції для екіпажу:</span>
+            <p className="text-xs font-bold text-amber-700 bg-amber-100 p-2 rounded-lg border border-amber-200">
               {activeIncident.object_instructions || 'Спеціальні інструкції відсутні'}
             </p>
           </div>

@@ -10,6 +10,7 @@ import Accounting from './components/Accounting';
 import Personnel from './components/Personnel';
 import GuardView from './components/GuardView';
 import ProtectedRoute from './components/ProtectedRoute';
+import ClientDashboard from './components/ClientDashboard';
 
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
