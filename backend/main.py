@@ -9,12 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime, timedelta
 from fastapi import Body
 import asyncio
+import uuid
+
+
 
 # Створюємо всі таблиці наново за нашими актуальними моделями
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
 # -----------------------------------------
 
 app = FastAPI()
+
 
 # Додаємо CORS middleware, щоб React (порт 5173) міг робити запити до FastAPI (порт 8000)
 app.add_middleware(
@@ -913,3 +917,54 @@ def get_my_payments(db: Session = Depends(get_db), token_data: dict = Depends(al
     user = db.query(models.User).filter(models.User.email == token_data.get("sub")).first()
     payments = db.query(models.Payment).filter(models.Payment.client_id == user.id).order_by(models.Payment.created_at.desc()).all()
     return payments
+
+
+
+# ==========================================
+# ІНТЕГРАЦІЯ З TELEGRAM
+# ==========================================
+
+@app.get("/telegram/link/")
+def generate_telegram_link(
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token) # Будь-який авторизований юзер може підключити бота
+):
+    # Шукаємо користувача
+    user_email = token_data.get("sub")
+    user = db.query(models.User).filter(models.User.email == user_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Користувача не знайдено")
+
+    # Якщо телеграм вже підключено, можемо просто сказати про це
+    if user.telegram_chat_id:
+        return {"message": "Telegram вже підключено", "already_linked": True}
+
+    # Генеруємо унікальний токен зв'язування (наприклад: "b3f4a9...")
+    sync_token = str(uuid.uuid4()).replace("-", "")[:12]
+    
+    # Зберігаємо токен в базу
+    user.telegram_sync_token = sync_token
+    db.commit()
+
+    # ТУТ ЮЗЕРНЕЙМ  БОТА (що був створений у BotFather)
+    bot_username = "guard_crm_pet_bot" 
+    
+    # Повертаємо готове посилання. Коли юзер перейде по ньому, 
+    # бот отримає команду /start разом із цим sync_token
+    telegram_url = f"https://t.me/{bot_username}?start={sync_token}"
+    
+    return {"telegram_url": telegram_url, "already_linked": False}
+
+
+
+
+# ==========================================
+# НЕБЕЗПЕЧНА ЗОНА (Тимчасовий ендпоінт для скидання бази)
+# ==========================================
+# @app.get("/danger-reset-db/")
+# def reset_database():
+#     # Видаляє всі існуючі таблиці з бази даних
+#     models.Base.metadata.drop_all(bind=engine)
+#     # Створює всі таблиці наново з оновленою структурою (новими колонками)
+#     models.Base.metadata.create_all(bind=engine)
+#     return {"message": "Базу даних успішно скинуто! Таблиці створені наново."}

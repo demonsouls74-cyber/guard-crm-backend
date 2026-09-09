@@ -6,3 +6,4 @@ pydantic[email]
 PyJWT
 bcrypt
 email-validator
+aiogram>=3.0.0

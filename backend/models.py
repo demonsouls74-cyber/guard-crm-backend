@@ -19,6 +19,10 @@ class User(Base):
     latitude = Column(Float, nullable=True)   
     longitude = Column(Float, nullable=True)
 
+    # === НОВІ ПОЛЯ ДЛЯ ТЕЛЕГРАМ-БОТА ===
+    telegram_chat_id = Column(String, unique=True, index=True, nullable=True)
+    telegram_sync_token = Column(String, unique=True, index=True, nullable=True)
+
     # Додаємо зв'язок: один користувач може мати багато об'єктів охорони
     security_objects = relationship("SecurityObject", back_populates="client")
 
