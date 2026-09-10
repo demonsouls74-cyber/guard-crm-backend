@@ -187,6 +187,21 @@ export default function GuardView() {
     navigate('/login');
   };
 
+  const handleConnectTelegram = async () => {
+    try {
+      const response = await api.get('/telegram/link/');
+      if (response.data.already_linked) {
+        alert('Ваш Telegram вже успішно підключено!');
+      } else if (response.data.telegram_url) {
+        // Відкриваємо посилання у новій вкладці (або в додатку Telegram на телефоні)
+        window.open(response.data.telegram_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Помилка генерації посилання:', error);
+      alert('Не вдалося згенерувати посилання для Telegram.');
+    }
+  };
+
   return (
     // 3. ЗМІНА ТУТ: h-screen замінено на h-[100dvh] для ідеального розміру на мобілках
     <div className="relative h-[100dvh] w-full bg-slate-900 overflow-hidden font-sans">
@@ -239,12 +254,20 @@ export default function GuardView() {
         </div>
       </div>
 
-      <button 
-        onClick={handleLogout} 
-        className="absolute top-4 right-4 z-30 bg-slate-800/90 hover:bg-red-500 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition"
-      >
-        Вийти
-      </button>
+      <div className="absolute top-4 right-4 z-30 flex space-x-2">
+        <button 
+          onClick={handleConnectTelegram}
+          className="bg-blue-500/90 hover:bg-blue-600 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition flex items-center"
+        >
+          <span className="mr-1">✈️</span> Telegram
+        </button>
+        <button 
+          onClick={handleLogout} 
+          className="bg-slate-800/90 hover:bg-red-500 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition"
+        >
+          Вийти
+        </button>
+      </div>
 
       {/* UI: ТРИВОГА (Модальне вікно по центру екрана) */}
       {activeIncident?.status === 'DISPATCHED' && (
