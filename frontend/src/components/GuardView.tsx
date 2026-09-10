@@ -201,7 +201,7 @@ export default function GuardView() {
       alert('Не вдалося згенерувати посилання для Telegram.');
     }
   };
-
+  
   return (
     // 3. ЗМІНА ТУТ: h-screen замінено на h-[100dvh] для ідеального розміру на мобілках
     <div className="relative h-[100dvh] w-full bg-slate-900 overflow-hidden font-sans">
@@ -254,20 +254,12 @@ export default function GuardView() {
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-30 flex space-x-2">
-        <button 
-          onClick={handleConnectTelegram}
-          className="bg-blue-500/90 hover:bg-blue-600 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition flex items-center"
-        >
-          <span className="mr-1">✈️</span> Telegram
-        </button>
-        <button 
-          onClick={handleLogout} 
-          className="bg-slate-800/90 hover:bg-red-500 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition"
-        >
-          Вийти
-        </button>
-      </div>
+      <button 
+        onClick={handleLogout} 
+        className="absolute top-4 right-4 z-30 bg-slate-800/90 hover:bg-red-500 text-white text-xs font-bold px-3 py-2.5 rounded-xl shadow-lg transition"
+      >
+        Вийти
+      </button>
 
       {/* UI: ТРИВОГА (Модальне вікно по центру екрана) */}
       {activeIncident?.status === 'DISPATCHED' && (

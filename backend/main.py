@@ -11,19 +11,6 @@ from fastapi import Body
 import asyncio
 import uuid
 
-import os
-from dotenv import load_dotenv
-from aiogram import Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-
-
-load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if TELEGRAM_BOT_TOKEN:
-    telegram_bot = Bot(token=TELEGRAM_BOT_TOKEN)
-else:
-    telegram_bot = None
 
 
 # Створюємо всі таблиці наново за нашими актуальними моделями
@@ -645,39 +632,6 @@ async def update_incident_status(
                 )
             # =================================
             incident.guard_id = incident_update.guard_id
-
-            # === НОВИЙ КОД: ВІДПРАВКА В TELEGRAM ===
-            if telegram_bot and assigned_guard.telegram_chat_id:
-                # Створюємо клавіатуру з однією кнопкою
-                markup = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text="🚨 ПРИЙНЯТИ ВИКЛИК", 
-                        callback_data=f"ack_{incident.id}" # Вшиваємо ID інциденту в кнопку
-                    )
-                ]])
-                
-                # Формуємо текст повідомлення з посиланням на карту
-                maps_link = f"https://www.google.com/maps?q={incident.security_object.latitude},{incident.security_object.longitude}"
-                
-                msg_text = (
-                    f"🚨 <b>ТРИВОГА!</b>\n\n"
-                    f"<b>Об'єкт:</b> {incident.security_object.name}\n"
-                    f"<b>Адреса:</b> {incident.security_object.address}\n\n"
-                    f"🗺 <a href='{maps_link}'>Відкрити маршрут на карті</a>\n\n"
-                    f"<i>Натисніть кнопку нижче, щоб підтвердити виїзд!</i>"
-                )
-                
-                try:
-                    await telegram_bot.send_message(
-                        chat_id=assigned_guard.telegram_chat_id,
-                        text=msg_text,
-                        parse_mode="HTML",
-                        reply_markup=markup
-                    )
-                except Exception as e:
-                    print(f"Помилка відправки в Telegram: {e}")
-            # ========================================
-
         else:
             raise HTTPException(status_code=400, detail="Для статусу DISPATCHED необхідно вказати guard_id.")
         
